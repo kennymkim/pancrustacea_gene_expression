@@ -89,3 +89,145 @@ bacdorsa_coding_degs <- filter_coding_DEGs(as.data.frame(bacdorsa_deg$deg_df), b
 bacdorsa_instar_coding_degs <- filter_coding_DEGs(bacdorsa_instar_deg_union, bacdorsa_coding_genes, "bd_", taxid = "bacdorsa_instar" )
 lvannamei_coding_degs <- filter_coding_DEGs(as.data.frame(lvannamei_deg$deg_df), lvannamei_coding_genes,"lv_", taxid = "lvannamei")
 scypa_coding_degs <- filter_coding_DEGs(as.data.frame(scypa_deg$deg_df), scypa_coding_genes, "sc_", taxid = "scypa")
+
+#all DEGs
+all_degdf <- rbind(dmel_coding_degs,bacdorsa_coding_degs, bacdorsa_instar_coding_degs, zcu_coding_degs,lvannamei_coding_degs,scypa_coding_degs)
+all_degdf$cluster_id <- all_orthodb$cluster_id[match(all_degdf$gene_id, all_orthodb$gene_id)]
+all_degdf <- all_degdf %>% mutate(cluster_id = ifelse(is.na(cluster_id), gene_id, as.character(cluster_id)))
+
+all_degdf_filtered_single_copy <- all_degdf %>% filter(all_degdf$cluster_id %in% all_ortho_singlecopy$cluster_id)
+all_degdf <- all_degdf %>%
+  mutate(lineage_taxid = case_when(
+    taxid %in% c("bacdorsa", "bacdorsa_instar") ~ "bacdorsa",
+    TRUE ~ taxid
+  ))
+
+#classify the DEGs 
+crustacea <- c("lvannamei", "scypa")
+insecta <- c("dmel", "zcu", "bacdorsa", "bacdorsa_instar")
+metamorphic <- c("dmel", "zcu", "bacdorsa")
+non_metamorphic <- c("lvannamei", "scypa", "bacdorsa_instar")
+
+classify_and_summarize_clusters <- function(all_degdf, insecta, crustacea, custom_order) {
+  
+  cluster_classification <- all_degdf %>%
+    group_by(cluster_id) %>%
+    summarise(
+      taxa_in_cluster = list(unique(taxid)),
+      n_insecta = sum(taxid %in% insecta),
+      n_crustacea = sum(taxid %in% crustacea),
+      n_species = n_distinct(lineage_taxid),
+      classification = case_when(
+        n_species == 1 ~ "Species specific",
+        n_crustacea >= 2 & n_insecta == 0 ~ "Malacostraca specific",
+        n_insecta >= 2 & n_crustacea == 0 & !("bacdorsa_instar" %in% unlist(taxa_in_cluster)) ~ "Metamorphic",
+        n_insecta >= 2 & n_crustacea == 0 & "bacdorsa_instar" %in% unlist(taxa_in_cluster) ~ "Insecta specific",
+        n_crustacea >= 1 & n_insecta == 1 & "bacdorsa_instar" %in% unlist(taxa_in_cluster) ~ "Non metamorphic",
+        n_crustacea >= 1 & n_insecta >= 1 ~ "Pancrustacea shared",
+        TRUE ~ "Other"
+      ),
+      .groups = "drop"
+    )
+  
+  all_classified <- all_degdf %>%
+    left_join(cluster_classification %>% select(cluster_id, classification), by = "cluster_id")
+
+  summary_df <- all_classified %>%
+    group_by(taxid, classification) %>%
+    summarise(n_genes = n(), .groups = "drop") %>%
+    arrange(taxid, desc(n_genes))
+  
+  summary_long <- summary_df %>%
+    rename(count = n_genes) %>%
+    group_by(taxid) %>%
+    mutate(percentage = (count / sum(count)) * 100)
+  
+  summary_long$taxid <- factor(summary_long$taxid, levels = custom_order)
+  summary_long$classification <- factor(
+    summary_long$classification,
+    levels = c(
+      #"Orphan genes",
+      "Species specific", 
+      "Metamorphic", 
+      "Insecta specific",
+      "Malacostraca specific", 
+      "Non metamorphic", 
+      "Pancrustacea shared"
+    )
+  )
+  
+  # 7️⃣ Return both summary and classified tables
+  return(list(summary = summary_long, classified = all_classified))
+}
+
+all_degdf_classified_all <- classify_and_summarize_clusters(
+  all_degdf = all_degdf,
+  insecta = insecta,
+  crustacea = crustacea,
+  custom_order = custom_order
+)
+
+all_degdf_metamorphic <- all_degdf_classified_df_all %>% filter(classification == "Metamorphic") %>% distinct(cluster_id)
+all_degdf_nonmetamorphic <- all_degdf_classified_df_all %>% filter(classification == "Non metamorphic") %>% distinct(cluster_id)
+all_degdf_classified_all_up <- all_degdf_classified_df_all %>% filter(log2FoldChange > 0)
+all_degdf_classified_all_down <- all_degdf_classified_df_all %>% filter(log2FoldChange < 0)
+
+all_degdf_classified_df_all  <- all_degdf_classified_all$classified
+all_degdf_classified_summary_all <- all_degdf_classified_all$summary
+
+all_degdf_classified_up_summary <- all_degdf_classified_all_up %>%
+  group_by(taxid, classification) %>%
+  summarise(count = n(), .groups = "drop_last") %>%
+  mutate(percentage = 100 * count / sum(count))
+
+all_degdf_classified_down_summary <- all_degdf_classified_all_down %>%
+  group_by(taxid, classification) %>%
+  summarise(count = n(), .groups = "drop_last") %>%
+  mutate(percentage = 100 * count / sum(count))
+
+insects <- c("dmel", "bacdorsa", "zcu")
+malacostraca <- c("lvannamei", "scypa")
+
+orthology_lookup <- all_orthodb %>%
+  mutate(cluster_id = as.character(cluster_id)) %>%
+  group_by(cluster_id) %>%
+  summarise(
+    has_insect = any(taxid %in% insects),
+    has_malacostraca = any(taxid %in% malacostraca),
+    lineage_status = case_when(
+      has_insect & has_malacostraca ~ "Pancrustacea shared",
+      has_insect & !has_malacostraca ~ "Insecta only",
+      !has_insect & has_malacostraca ~ "Malacostraca only",
+      TRUE ~ "No orthology / orphan"
+    ),
+    .groups = "drop"
+  )
+
+orthology_lookup <- orthology_lookup %>% mutate(cluster_id = as.character(cluster_id))
+all_degdf_classified_df_all_annot <- all_degdf_classified_df_all %>% left_join(orthology_lookup, by = "cluster_id")
+all_degdf_classified_df_all_annot <- all_degdf_classified_df_all_annot %>%
+  mutate(
+    lineage_status = ifelse(is.na(lineage_status),
+                            "No orthology / orphan",
+                            lineage_status)
+  )
+
+all_degdf_summary_orthology_level <- all_degdf_classified_df_all_annot %>%
+  count(taxid, classification, lineage_status) %>%
+  arrange(taxid, classification, lineage_status)
+
+taxid_levels <- c("zcu","dmel","bacdorsa","bacdorsa_instar","scypa","lvannamei")
+class_levels <- c("Metamorphic","Non metamorphic","Insecta specific","Malacostraca specific","Pancrustacea shared","Species specific")
+lineage_levels <- c("Insecta only","Malacostraca only","No orthology/Orphan","Pancrustacea shared")
+
+plot_df <- all_degdf_summary_orthology_level %>%
+  mutate(
+    taxid = factor(taxid, levels = taxid_levels),
+    classification = factor(classification, levels = class_levels),
+    lineage_status = factor(lineage_status, levels = lineage_levels),
+    x = paste(taxid, classification, sep = " | ")
+  ) %>%
+  arrange(taxid, classification) %>%
+  mutate(x = factor(x, levels = rev(unique(x))))
+
+
