@@ -1,7 +1,10 @@
 #generate deseq object and VST counts
+library(tidyr)
+library(dplyr)
+library(DESeq2)
+library(tximport)
 
 directory <- "/path"
-species <- "dmel"
 
 norm_rnaseq <- function(species, directory) {
   # Retrieve annotation file
@@ -117,6 +120,72 @@ lvannamei_vst <- vst_rnaseq(lvannamei_deseq$norm, "lvannamei", orthologer_030325
 scypa_vst <- vst_rnaseq(scypa_deseq$norm, "scypa", orthologer_030325,"sc_")
 all_orthodb <- rbind(dmel_vst$vst_orthodb, zcu_vst$vst_orthodb, bacdorsa_all_vst$vst_orthodb, lvannamei_vst$vst_orthodb, scypa_vst$vst_orthodb)
 all_ortho_singlecopy <- all_orthodb %>% group_by(cluster_id) %>% filter(n_distinct(taxid) == 5)
+
+#generate orthology matrix
+
+bacdorsa_counts <- as.data.frame(bacdorsa_all_deseq$counts)
+bacdorsa_counts <- bacdorsa_counts[, new_col_order]
+bacdorsa_counts$gene_id <- paste0("bd_", bacdorsa_counts$gene_id)
+bacdorsa_counts_orthogroup <- bacdorsa_counts %>% filter(bacdorsa_counts$gene_id %in% all_ortho_singlecopy$gene_id)
+bacdorsa_counts_orthogroup$cluster_id <- all_ortho_singlecopy$cluster_id[match(bacdorsa_counts_orthogroup$gene_id, all_ortho_singlecopy$gene_id)]
+rownames(bacdorsa_counts_orthogroup) <- bacdorsa_counts_orthogroup$gene_id
+
+zcu_counts <- as.data.frame(zcu_deseq$counts)
+zcu_counts$gene_id <- paste0("zcu_", zcu_counts$gene_id)
+zcu_counts_orthogroup <- zcu_counts %>% filter(zcu_counts$gene_id %in% all_ortho_singlecopy$gene_id)
+zcu_counts_orthogroup$cluster_id <- all_ortho_singlecopy$cluster_id[match(zcu_counts_orthogroup$gene_id, all_ortho_singlecopy$gene_id)]
+rownames(zcu_counts_orthogroup) <- zcu_counts_orthogroup$gene_id
+
+dmel_counts <- as.data.frame(dmel_deseq$counts)
+dmel_counts_orthogroup <- dmel_counts %>% filter(dmel_counts$gene_id %in% all_ortho_singlecopy$gene_id)
+dmel_counts_orthogroup$cluster_id <- all_ortho_singlecopy$cluster_id[match(dmel_counts_orthogroup$gene_id, all_ortho_singlecopy$gene_id)]
+rownames(dmel_counts_orthogroup)<- dmel_counts_orthogroup$gene_id 
+
+lvannamei_counts <- as.data.frame(lvannamei_deseq$counts)
+lvannamei_counts$gene_id <- paste0("lv_", lvannamei_counts$gene_id)
+lvannamei_counts_orthogroup <- lvannamei_counts %>% filter(lvannamei_counts$gene_id %in% all_ortho_singlecopy$gene_id)
+lvannamei_counts_orthogroup$cluster_id <- all_ortho_singlecopy$cluster_id[match(lvannamei_counts_orthogroup$gene_id, all_ortho_singlecopy$gene_id)]
+rownames(lvannamei_counts_orthogroup)<- lvannamei_counts_orthogroup$gene_id 
+
+scypa_counts <- as.data.frame(scypa_deseq$counts)
+scypa_counts$gene_id <- paste0("sc_", scypa_counts$gene_id)
+scypa_counts_orthogroup <- scypa_counts %>% filter(scypa_counts$gene_id %in% all_ortho_singlecopy$gene_id)
+scypa_counts_orthogroup$cluster_id <- all_ortho_singlecopy$cluster_id[match(scypa_counts_orthogroup$gene_id, all_ortho_singlecopy$gene_id)]
+rownames(scypa_counts_orthogroup)<- scypa_counts_orthogroup$gene_id 
+
+merge1 <- merge(dmel_counts_orthogroup, zcu_counts_orthogroup, by = "cluster_id")
+merge2 <- merge(bacdorsa_counts_orthogroup,lvannamei_counts_orthogroup, by = "cluster_id")
+merge3 <- merge(merge1,merge2, by = "cluster_id")
+all_counts_5species <- merge(merge3,scypa_counts_orthogroup, by = "cluster_id")
+
+write.table(bacdorsa_counts, file = "bacdorsa_counts.tsv", sep = '\t', quote = FALSE, row.names = FALSE)
+write.table(dmel_counts, file = "dmel_counts.tsv", sep = '\t', quote = FALSE, row.names = FALSE)
+write.table(zcu_counts, file = "zcu_counts.tsv", sep = '\t', quote = FALSE, row.names = FALSE)
+write.table(lvannamei_counts, file = "lvannamei_counts.tsv", sep = '\t', quote = FALSE, row.names = FALSE)
+write.table(scypa_counts, file = "scypa_counts.tsv", sep = '\t', quote = FALSE, row.names = FALSE)
+
+all_metadata <- read.delim("all_metadata.txt", header = TRUE, sep = "\t")
+rownames(all_metadata) <- all_metadata$name
+
+all_counts_deseq <- DESeqDataSetFromMatrix(
+  countData = all_counts_5species,
+  colData = all_metadata,  
+  design = ~ condition + species
+)
+
+all_species_norm <- DESeq(all_counts_deseq)
+
+# Save the dispersion plot
+plotfile <- "all_dispersion.png"
+png(plotfile, width = 8, height = 4, units = "in", res = 400)
+plotDispEsts(all_species_norm)
+dev.off()
+
+
+
+
+
+
 
 
 
