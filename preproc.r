@@ -181,7 +181,40 @@ png(plotfile, width = 8, height = 4, units = "in", res = 400)
 plotDispEsts(all_species_norm)
 dev.off()
 
+all_counts_deseq$condition <- relevel(all_counts_deseq$condition, "prm")
+all_species_vst <- varianceStabilizingTransformation(all_species_norm, blind=F)
+all_species_vst <- as.data.frame(assay(all_species_vst))
 
+library(PCAtools)
+p <- pca(all_species_vst, metadata = all_metadata, removeVar = 0.05)
+pca_scores <- p$rotated
+pca_scores$sample <- rownames(pca_scores)
+pca_scores <- merge(pca_scores, all_metadata, by.x = "sample", by.y = "name")
+
+percent_variance <- round(p$variance, 2)
+pca_scores$groupings <- as.factor(pca_scores$groupings)
+
+plotfile <- "PCA_PC1PC2.png"
+png(plotfile, width = 6.4, height = 7, units = "in", res = 400)
+ggplot(pca_scores, aes(x = PC1, y = PC2, color = stage, shape = species)) +
+  geom_point(size = 3, alpha = 0.9) +  
+  stat_ellipse(
+    aes(group = groupings),   
+    type = "norm",          
+    level = 0.8,           
+    alpha = 0.3,           
+    color = "black",       
+    linewidth = 0.5         
+  ) +
+  labs(
+    x = paste0("PC1 (", percent_variance[1], "%)"),
+    y = paste0("PC2 (", percent_variance[2], "%)")
+  ) +
+  theme_minimal() +
+  theme(
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 1)  # Add black border
+  )
+dev.off()
 
 
 
