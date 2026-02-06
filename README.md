@@ -1,2 +1,2 @@
 # pancrustacea_gene_expression
-scripts for pancrustacea gene expression paper 
+This contains the scripts for the Pancrustacea gene expression study.
