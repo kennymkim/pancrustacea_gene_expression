@@ -216,9 +216,9 @@ all_degdf_summary_orthology_level <- all_degdf_classified_df_all_annot %>%
   count(taxid, classification, lineage_status) %>%
   arrange(taxid, classification, lineage_status)
 
-taxid_levels <- c("zcu","dmel","bacdorsa","bacdorsa_instar","scypa","lvannamei")
-class_levels <- c("Metamorphic","Non metamorphic","Insecta specific","Malacostraca specific","Pancrustacea shared","Species specific")
-lineage_levels <- c("Insecta only","Malacostraca only","No orthology/Orphan","Pancrustacea shared")
+#plot the degdf summary
+library(ggplot2)
+library(patchwork)
 
 plot_df <- all_degdf_summary_orthology_level %>%
   mutate(
@@ -229,5 +229,98 @@ plot_df <- all_degdf_summary_orthology_level %>%
   ) %>%
   arrange(taxid, classification) %>%
   mutate(x = factor(x, levels = rev(unique(x))))
+
+right_species <- factor(c("lvannamei","dmel"), levels = c("lvannamei","dmel"))
+middle_species <- factor(c("scypa","zcu"),levels = c("scypa","zcu"))
+left_species <- factor(c("bacdorsa","bacdorsa_instar"),levels = c("bacdorsa","bacdorsa_instar"))
+
+species_labels <- c(
+  bacdorsa_instar = "B. dorsalis (instar)",
+  bacdorsa        = "B. dorsalis",
+  scypa            = "S. paramamosain",
+  zcu              = "Z. cucurbitae",
+  lvannamei        = "L. vannamei",
+  dmel             = "D. melanogaster"
+)
+
+orthology_cols <- c(
+  "All Pancrustacea"   = "#F8766D",
+  "Insecta only"          = "#7CAE00",
+  "Malacostraca only"     = "#00BFC4",
+  "No detectable orthologs (orphan)" = "#C77CFF"
+)
+fill_scale <- scale_fill_manual(values = orthology_cols, drop = FALSE)
+
+p_left <- plot_df %>%
+  filter(taxid %in% left_species) %>%
+  ggplot(aes(x = classification, y = n, fill = lineage_status)) +
+  geom_col(color = "black", linewidth = 0.25) +
+  facet_wrap(~ taxid, ncol = 1, scales = "free_y", labeller = labeller(taxid = species_labels)) +
+  coord_flip() +
+  labs(
+    x = NULL,
+    y = NULL,
+    fill = "Orthology grouping"
+  ) +
+  fill_scale +
+  theme_minimal(base_size = 13) +
+  theme(
+    panel.border = element_rect(color = "black", fill = NA),
+    strip.background = element_rect(color = "black", fill = "grey90"),
+    strip.text = element_text(face = "bold"),
+    axis.text = element_text(color = "black"),
+    legend.position = "none"
+  )
+
+p_middle <- plot_df %>%
+  filter(taxid %in% middle_species) %>%
+  ggplot(aes(x = classification, y = n, fill = lineage_status)) +
+  geom_col(color = "black", linewidth = 0.25) +
+  facet_wrap(~ taxid, ncol = 1, scales = "free_y", labeller = labeller(taxid = species_labels)) +
+  coord_flip() +
+  fill_scale +
+  labs(
+    x = NULL,
+    y = "Number of DEGs",
+    fill = "Orthology grouping"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    panel.border = element_rect(color = "black", fill = NA),
+    strip.background = element_rect(color = "black", fill = "grey90"),
+    legend.position = "none",
+    strip.text = element_text(face = "bold"),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank()
+  )
+
+p_right <- plot_df %>%
+  filter(taxid %in% right_species) %>%
+  ggplot(aes(x = classification, y = n, fill = lineage_status)) +
+  geom_col(color = "black", linewidth = 0.25) +
+  facet_wrap(~ taxid, ncol = 1, scales = "free_y", labeller = labeller(taxid = species_labels)) +
+  coord_flip() +
+  fill_scale +
+  labs(
+    x = NULL,
+    y = NULL,
+    fill = "Orthology distribution"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    panel.border = element_rect(color = "black", fill = NA),
+    strip.background = element_rect(color = "black", fill = "grey90"),
+    strip.text = element_text(face = "bold"),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank()
+  )
+
+final_plot <- p_left|p_middle|p_right
+final_plot
+
+plotfile <- "Figure.png"
+png(plotfile, width = 9, height = 5, units = "in", res = 600)
+final_plot
+dev.off()
 
 
