@@ -50,20 +50,6 @@ pt_dmel_TAI <- PlotSignature(ExpressionSet = pt_dmel_phyloset,
               xlab          = "Ontogeny", 
               ylab          = "TAI" )
 
-ggplot(pt_dmel_TAI$data, aes(x = stage, y = expr, color = PS, group = PS)) +
-  geom_line(size = 2) +
-  theme_minimal() +
-  labs(
-    title = "Mean Gene Expression Per PS",
-    x = "Stage",
-    y = "Mean Expression",
-    color = "PS" 
-  ) +  theme_minimal() +
-  theme(
-    panel.border = element_rect(color = "black", fill = NA, linewidth = 1),
-    axis.text.x = element_text(size = 12),
-    axis.text.y = element_text(size = 12),
-  )
 
 ggplot(pt_dmel_TAI$data, aes(x = factor(Stage, levels = c("L3","wandering_early", "wandering_mid","wandering_late",  "p0", "p1", "p2", "p3")), y = TI, group = 1)) +
   geom_line(size = 2, color = "blue") +
