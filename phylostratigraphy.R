@@ -1,4 +1,5 @@
 #construct phyloset df
+
 pt_lvannamei_gene_ages <- read.csv("6689_gene_ages.tsv", sep="\t", header=TRUE)
 pt_lvannamei_phyloset <-  left_join(lvannamei_vst, pt_lvannamei_gene_ages[, c("gene_id","rank")], by = "gene_id")
 pt_lvannamei_phyloset <- pt_lvannamei_phyloset %>% select(rank, everything())
@@ -15,9 +16,9 @@ pt_dmel_phyloset <- pt_dmel_phyloset %>% distinct()
 pt_dmel_phyloset <- na.omit(pt_dmel_phyloset)
 pt_dmel_phyloset$Phylostratum <- pt_dmel_phyloset$rank
 pt_dmel_phyloset$rank <- NULL
-pt_dmel_phyloset <- pt_dmel_phyloset %>% select(Phylostratum, everything())
+pt_dmel_phyloset <- pt_dmel_phyloset %>% select(Phylostratum, everything()) 
 
-# Recode the Phylostratum column using case_when
+# Recode the Phylostratum column
 pt_lvannamei_phyloset <- pt_lvannamei_phyloset %>%
   mutate(
     Phylostratum = case_when(
@@ -42,7 +43,11 @@ pt_dmel_phyloset <- pt_dmel_phyloset %>%
     )
   )
 
-#TAI plots
+pt_lvannamei_TAI <- PlotSignature(ExpressionSet = pt_lvannamei_phyloset,
+              measure       = "TAI", 
+              TestStatistic = "FlatLineTest",
+              xlab          = "Ontogeny", 
+              ylab          = "TAI" )
 
 pt_dmel_TAI <- PlotSignature(ExpressionSet = pt_dmel_phyloset,
               measure       = "TAI", 
