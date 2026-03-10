@@ -14,7 +14,6 @@ process_data <- function(vst_df, cluster_genes, prefix = NULL) {
   return(long_format)
 }
 
-#process lvannamei
 pt_lvannamei_clust <- read.delim("lvannamei_clusters.tsv", header = TRUE, stringsAsFactors = FALSE)
 
 tempo_lvannamei_C1_long <- process_data(pt_lvannamei_vst, pt_lvannamei_clust$C1) 
@@ -124,7 +123,6 @@ png(plotfile, width = 7.5, height = 6.9, units = "in", res = 600)
 combined_plot
 dev.off()
 
-#process dmel
 
 
 
