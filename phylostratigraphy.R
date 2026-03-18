@@ -56,7 +56,7 @@ pt_dmel_TAI <- PlotSignature(ExpressionSet = pt_dmel_phyloset,
               ylab          = "TAI" )
 
 
-ggplot(pt_dmel_TAI$data, aes(x = factor(Stage, levels = c("L3","wandering_early", "wandering_mid","wandering_late",  "p0", "p1", "p2", "p3")), y = TI, group = 1)) +
+ggplot(pt_dmel_TAI$data, aes(x = factor(Stage, levels = c("L3","wandering_early", "wandering_mid","wandering_late",  "p0", "p1", "p2")), y = TI, group = 1)) +
   geom_line(size = 2, color = "blue") +
   theme_minimal() +
   labs(
